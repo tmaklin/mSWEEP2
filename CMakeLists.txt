@@ -271,12 +271,31 @@ else()
 endif()
 include_directories(${CMAKE_SEAMAT_HEADERS})
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar")
-add_dependencies(mSWEEP rcgpar_cxx)
-set(CMAKE_RCGPAR_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar")
+## rcgpar-rs
+if (DEFINED CMAKE_RCGPAR_HEADERS AND DEFINED CMAKE_RCGPAR_LIB AND DEFINED CMAKE_RCGPAR_CXX)
+  message(STATUS "rcgpar headers provided in: ${CMAKE_RCGPAR_HEADERS}")
+  message(STATUS "rcgpar provided in: ${CMAKE_RCGPAR_LIB}")
+  message(STATUS "rcgpar_cxx provided in: ${CMAKE_RCGPAR_CXX}")
+else()
+  FetchContent_Declare(rcgpar_api
+    GIT_REPOSITORY    https://github.com/tmaklin/rcgpar.git
+    GIT_TAG           rcgpar-rs
+    PREFIX            "external"
+    SOURCE_DIR        "${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar"
+    BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar"
+    BUILD_IN_SOURCE   0
+    CONFIGURE_COMMAND ""
+    INSTALL_COMMAND   ""
+    )
+  FetchContent_MakeAvailable(rcgpar_api)
+  add_dependencies(mSWEEP rcgpar_cxx)
 
+  set(CMAKE_RCGPAR_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar")
+  set(CMAKE_RCGPAR_CXX "${CMAKE_CURRENT_BINARY_DIR}/lib/librcgpar_cxx.a")
+  set(CMAKE_RCGPAR_LIB "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar/librcgpar.a")
+endif()
 include_directories(${CMAKE_RCGPAR_HEADERS})
-target_link_libraries(mSWEEP rcgpar_cxx ${RCGPAR_LIB})
+target_link_libraries(mSWEEP ${CMAKE_RCGPAR_CXX} ${CMAKE_RCGPAR_LIB})
 
 ## mGEMS
 if (DEFINED CMAKE_MGEMS_LIBRARY AND DEFINED CMAKE_MGEMS_HEADERS)
