@@ -271,44 +271,12 @@ else()
 endif()
 include_directories(${CMAKE_SEAMAT_HEADERS})
 
-## rcgpar
-if (DEFINED CMAKE_RCGPAR_LIBRARIES AND DEFINED CMAKE_RCGPAR_HEADERS AND DEFINED CMAKE_RCGUTILS_LIBRARY)
-  message(STATUS "rcgpar headers provided in: ${CMAKE_RCGPAR_HEADERS}")
-  message(STATUS "rcgpar library provided in: ${CMAKE_RCGPAR_LIBRARIES}")
-  message(STATUS "rcgutils library provided in: ${CMAKE_RCGUTILS_LIBRARY}")
-else()
-  FetchContent_Declare(rcgpar
-    GIT_REPOSITORY    https://github.com/tmaklin/rcgpar.git
-    GIT_TAG           v1.2.1
-    PREFIX            "external"
-    SOURCE_DIR        "${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar"
-    BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar"
-    BUILD_IN_SOURCE   0
-    CMAKE_ARGS      -D CMAKE_SEAMAT_HEADERS=${CMAKE_SEAMAT_HEADERS}
-		    -D CMAKE_BITMAGIC_HEADERS=${CMAKE_BITMAGIC_HEADERS}
-		    -D CMAKE_LIBTORCH_PATH=${CMAKE_LIBTORCH_PATH}
-		    -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-		    -D "CMAKE_C_FLAGS=${CMAKE_C_FLAGS}"
-		    -D "CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
-		    -D "CMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
-		    -D "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-    INSTALL_COMMAND   ""
-    )
-  FetchContent_MakeAvailable(rcgpar)
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar")
+add_dependencies(mSWEEP rcgpar_cxx)
+set(CMAKE_RCGPAR_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar")
 
-  if (TORCH_FOUND)
-    add_dependencies(mSWEEP rcgomp rcggpu rcgutils)
-    set(CMAKE_RCGPAR_LIBRARIES "${CMAKE_CURRENT_BINARY_DIR}/lib/librcgomp.a" "${CMAKE_CURRENT_BINARY_DIR}/lib/librcggpu.a")
-  else()
-    add_dependencies(mSWEEP rcgomp rcgutils)
-    set(CMAKE_RCGPAR_LIBRARIES "${CMAKE_CURRENT_BINARY_DIR}/lib/librcgomp.a")
-  endif()
-  set(CMAKE_RCGPAR_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar/include)
-  set(CMAKE_RCGUTILS_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/lib/librcgutils.a")
-endif()
-target_link_libraries(mSWEEP ${CMAKE_RCGPAR_LIBRARIES})
-target_link_libraries(mSWEEP ${CMAKE_RCGUTILS_LIBRARY})
 include_directories(${CMAKE_RCGPAR_HEADERS})
+target_link_libraries(mSWEEP rcgpar_cxx ${RCGPAR_LIB})
 
 ## mGEMS
 if (DEFINED CMAKE_MGEMS_LIBRARY AND DEFINED CMAKE_MGEMS_HEADERS)

@@ -35,7 +35,7 @@
 #include "cxxargs.hpp"
 #include "Matrix.hpp"
 #include "cxxio.hpp"
-#include "rcgpar.hpp"
+#include "rcgpar_cxx.h"
 #include "bin_reads.h"
 
 #include "mSWEEP_alignment.hpp"
@@ -189,19 +189,36 @@ seamat::DenseMatrix<double> rcg_optl(const cxxargs::Arguments &args, const seama
   //
   std::ofstream of;
 
+  size_t n_groups = prior_counts.size();
+  size_t n_obs = log_ec_counts.size();
+
+  std::vector<double> probs_flat;
+  probs_flat.reserve(0);
+  probs_flat.shrink_to_fit();
   if (args.value<std::string>("algorithm") == "rcggpu") {
     // Run rcg on CPU or GPU if present
-    const seamat::DenseMatrix<double> &ec_probs = rcgpar::rcg_optl_torch(ll_mat, log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"), (args.value<bool>("verbose") ? log.stream() : of));
-    return ec_probs;
+    auto probs_rs = rcgpar::rcg_optl_gpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
+    for (auto &val : probs_rs) {
+      probs_flat.push_back(val);
+    }
   } else if (args.value<std::string>("algorithm") == "rcgcpu") {
     // Run rcg on CPU, use OpenMP if supported
-    const seamat::DenseMatrix<double> &ec_probs = rcgpar::rcg_optl_omp(ll_mat, log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"), (args.value<bool>("verbose") ? log.stream() : of));
-    return ec_probs;
+    auto probs_rs = rcgpar::rcg_optl_cpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
+    for (auto &val : probs_rs) {
+      probs_flat.push_back(val);
+    }
   } else {
     // Run em on CPU or GPU if present
-    const seamat::DenseMatrix<double> &ec_probs = rcgpar::em_torch(ll_mat, log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"), (args.value<bool>("verbose") ? log.stream() : of), args.value<std::string>("emprecision"));
-    return ec_probs;
+    auto probs_rs = rcgpar::em_gpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
+    for (auto &val : probs_rs) {
+      probs_flat.push_back(val);
+    }
   }
+    const seamat::DenseMatrix<double> &ec_probs = seamat::DenseMatrix<double>(probs_flat, n_groups, n_obs);
+    return ec_probs;
 }
 
 int main (int argc, char *argv[]) {
@@ -416,12 +433,15 @@ int main (int argc, char *argv[]) {
 
 	// Run binning if requested and write results to files.
 	  // Turn the probs into relative abundances
-	  if (args.value<std::string>("algorithm") == "rcgcpu") {
-	      sample->store_abundances(rcgpar::mixture_components(sample->get_probs(), log_likelihoods->log_counts()));
-	  } else {
-	      sample->store_abundances(rcgpar::mixture_components_torch(sample->get_probs(), log_likelihoods->log_counts()));
-	  }
-
+	 {
+     const auto &abundances_rs = rcgpar::mixture_components(sample->get_probs().get_data(), log_likelihoods->log_counts());
+     std::vector<double> abundances;
+     for (auto &val : abundances_rs) {
+       abundances.push_back(val);
+     }
+     sample->store_abundances(abundances);
+   }
+	
 	  if (args.value<size_t>("min-hits") > 0) {
 	      for (size_t j = 0; j < reference->group_names(i).size(); ++j) {
 		  if (log_likelihoods->groups_considered()[j]) {
@@ -509,11 +529,14 @@ int main (int argc, char *argv[]) {
 	      finalize("Bootstrap iteration " + std::to_string(k) + "/" + std::to_string(args.value<size_t>("iters")) + " failed:\n  " + std::string(e.what()) + "\nexiting\n", log, true);
 	      return 1;
 	    }
-		if (args.value<std::string>("algorithm") == "rcgcpu") {
-		    sample->store_abundances(rcgpar::mixture_components(sample->get_probs(), resampled_counts));
-		} else {
-		    sample->store_abundances(rcgpar::mixture_components_torch(sample->get_probs(), resampled_counts));
-		}
+      {
+        const auto &abundances_rs = rcgpar::mixture_components(sample->get_probs().get_data(), resampled_counts);
+        std::vector<double> abundances;
+        for (auto &val : abundances_rs) {
+          abundances.push_back(val);
+        }
+        sample->store_abundances(abundances);
+      }
 	  }
 	}
       }
