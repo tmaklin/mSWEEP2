@@ -195,23 +195,26 @@ seamat::DenseMatrix<double> rcg_optl(const cxxargs::Arguments &args, const seama
   std::vector<double> probs_flat;
   probs_flat.reserve(0);
   probs_flat.shrink_to_fit();
+  std::vector<float> loglls(ll_mat.get_data().begin(), ll_mat.get_data().end());
+  std::vector<float> log_counts(log_ec_counts.begin(), log_ec_counts.end());
+  std::vector<float> alpha0(prior_counts.begin(), prior_counts.end());
   if (args.value<std::string>("algorithm") == "rcggpu") {
     // Run rcg on CPU or GPU if present
-    auto probs_rs = rcgpar::rcg_optl_gpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    auto probs_rs = rcgpar::rcg_optl_gpu(loglls, log_counts, alpha0, args.value<double>("tol"), args.value<size_t>("max-iters"));
     probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
     for (auto &val : probs_rs) {
       probs_flat.push_back(val);
     }
   } else if (args.value<std::string>("algorithm") == "rcgcpu") {
     // Run rcg on CPU, use OpenMP if supported
-    auto probs_rs = rcgpar::rcg_optl_cpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    auto probs_rs = rcgpar::rcg_optl_cpu(loglls, log_counts, alpha0, args.value<double>("tol"), args.value<size_t>("max-iters"));
     probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
     for (auto &val : probs_rs) {
       probs_flat.push_back(val);
     }
   } else {
     // Run em on CPU or GPU if present
-    auto probs_rs = rcgpar::em_gpu(ll_mat.get_data(), log_ec_counts, prior_counts, args.value<double>("tol"), args.value<size_t>("max-iters"));
+    auto probs_rs = rcgpar::em_gpu(loglls, log_counts, alpha0, args.value<double>("tol"), args.value<size_t>("max-iters"));
     probs_flat.reserve((uint64_t)((uint64_t)n_groups * (uint64_t)n_obs));
     for (auto &val : probs_rs) {
       probs_flat.push_back(val);
@@ -434,7 +437,7 @@ int main (int argc, char *argv[]) {
 	// Run binning if requested and write results to files.
 	  // Turn the probs into relative abundances
 	 {
-     const auto &abundances_rs = rcgpar::mixture_components(sample->get_probs().get_data(), log_likelihoods->log_counts());
+     const auto &abundances_rs = rcgpar::mixture_components(std::vector<float>(sample->get_probs().get_data().begin(), sample->get_probs().get_data().end()), std::vector<float>(log_likelihoods->log_counts().begin(), log_likelihoods->log_counts().end()));
      std::vector<double> abundances;
      for (auto &val : abundances_rs) {
        abundances.push_back(val);
@@ -530,7 +533,7 @@ int main (int argc, char *argv[]) {
 	      return 1;
 	    }
       {
-        const auto &abundances_rs = rcgpar::mixture_components(sample->get_probs().get_data(), resampled_counts);
+        const auto &abundances_rs = rcgpar::mixture_components(std::vector<float>(sample->get_probs().get_data().begin(), sample->get_probs().get_data().end()), std::vector<float>(resampled_counts.begin(), resampled_counts.end()));
         std::vector<double> abundances;
         for (auto &val : abundances_rs) {
           abundances.push_back(val);
