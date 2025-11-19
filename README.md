@@ -3,6 +3,9 @@
 
 Under development -- if you want to contribute or have suggestions, get in touch.
 
+See the [status tracker](https://github.com/tmaklin/mSWEEP2/issues/1) for what's
+planned currently.
+
 # Installation
 ## Building from source
 ### Requirements
