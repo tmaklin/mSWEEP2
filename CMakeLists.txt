@@ -277,6 +277,7 @@ if (DEFINED CMAKE_RCGPAR_HEADERS AND DEFINED CMAKE_RCGPAR_LIB AND DEFINED CMAKE_
   message(STATUS "rcgpar provided in: ${CMAKE_RCGPAR_LIB}")
   message(STATUS "rcgpar_cxx provided in: ${CMAKE_RCGPAR_CXX}")
 else()
+  set(CMAKE_CARGO_OPTIONS ${CMAKE_CARGO_OPTIONS} "--features wgpu")
   FetchContent_Declare(rcgpar_api
     GIT_REPOSITORY    https://github.com/tmaklin/rcgpar.git
     GIT_TAG           rcgpar-rs
@@ -284,6 +285,9 @@ else()
     SOURCE_DIR        "${CMAKE_CURRENT_SOURCE_DIR}/external/rcgpar"
     BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/external/rcgpar"
     BUILD_IN_SOURCE   0
+    CMAKE_ARGS        -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                      -D CMAKE_CARGO_OPTIONS=${CMAKE_CARGO_OPTIONS}
+                      -D CMAKE_RUST_FLAGS=${CMAKE_RUST_FLAGS}
     CONFIGURE_COMMAND ""
     INSTALL_COMMAND   ""
     )
